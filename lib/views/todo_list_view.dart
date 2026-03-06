@@ -37,6 +37,32 @@ class _TodoListViewState extends State<TodoListView>
     _animationController.forward();
 
     _searchController.addListener(_onSearchChanged);
+
+    // Load user email after the widget is built
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadUserEmail();
+    });
+  }
+
+  String? _userEmail;
+
+  Future<void> _loadUserEmail() async {
+    try {
+      final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
+      final email = await authViewModel.getLoggedInUserEmail();
+      if (mounted) {
+        setState(() {
+          _userEmail = email;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading user email: $e');
+      if (mounted) {
+        setState(() {
+          _userEmail = 'Account not found';
+        });
+      }
+    }
   }
 
   @override
@@ -78,23 +104,41 @@ class _TodoListViewState extends State<TodoListView>
       }
     });
 
-    // sync animated list length if needed
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_listKey.currentState != null) {
-        // nothing for now
-      }
-    });
-
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          'CIPHERTASK',
-          style: GoogleFonts.orbitron(
-            fontSize: 18,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 2,
-            color: Colors.white,
-          ),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'CIPHERTASK',
+              style: GoogleFonts.orbitron(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 2,
+                color: Colors.white,
+              ),
+            ),
+            SizedBox(height: 4),
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                _userEmail ?? 'No account info',
+                style: GoogleFonts.roboto(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  color: _userEmail != null
+                      ? Colors.white
+                      : Colors.white.withValues(alpha: 0.7),
+                  letterSpacing: 0.3,
+                ),
+              ),
+            ),
+          ],
         ),
         backgroundColor: const Color(0xFF1A1A2E),
         elevation: 0,
@@ -177,14 +221,10 @@ class _TodoListViewState extends State<TodoListView>
                         child: const Text('Cancel'),
                       ),
                       TextButton(
-                        onPressed: () async {
+                        onPressed: () {
                           Navigator.pop(context);
                           authViewModel.logout();
-                          
-                          
-                          if (context.mounted) {
-                            Navigator.of(context).pushReplacementNamed('/login');
-                          }
+                          Navigator.pushReplacementNamed(context, '/login');
                         },
                         child: const Text(
                           'Logout',
@@ -644,7 +684,7 @@ class _TodoListViewState extends State<TodoListView>
                                           ),
                                         ),
                                         subtitle: Text(
-                                          'Tap to view secret note • Swipe to complete/delete',
+                                          'Tap to view secret note • Use buttons to edit/delete',
                                           style: TextStyle(
                                             color: Colors.white.withValues(
                                               alpha: 0.5,
@@ -670,6 +710,65 @@ class _TodoListViewState extends State<TodoListView>
                                                     todoViewModel,
                                                     todo: todo,
                                                   ),
+                                            ),
+                                            IconButton(
+                                              icon: Icon(
+                                                Icons.delete_outline,
+                                                color: Colors.red.withValues(
+                                                  alpha: 0.7,
+                                                ),
+                                                size: 20,
+                                              ),
+                                              tooltip: 'Delete task',
+                                              onPressed: () {
+                                                showDialog(
+                                                  context: context,
+                                                  builder: (context) => AlertDialog(
+                                                    title: const Text(
+                                                      'Delete Task?',
+                                                      style: TextStyle(
+                                                        color: Colors.white,
+                                                      ),
+                                                    ),
+                                                    backgroundColor:
+                                                        const Color(0xFF1A1A2E),
+                                                    content: const Text(
+                                                      'This action cannot be undone',
+                                                      style: TextStyle(
+                                                        color: Colors.white70,
+                                                      ),
+                                                    ),
+                                                    actions: [
+                                                      TextButton(
+                                                        onPressed: () =>
+                                                            Navigator.pop(
+                                                              context,
+                                                            ),
+                                                        child: const Text(
+                                                          'Cancel',
+                                                        ),
+                                                      ),
+                                                      TextButton(
+                                                        onPressed: () {
+                                                          todoViewModel
+                                                              .deleteTodo(
+                                                                todo.id!,
+                                                              );
+                                                          Navigator.pop(
+                                                            context,
+                                                          );
+                                                        },
+                                                        child: const Text(
+                                                          'Delete',
+                                                          style: TextStyle(
+                                                            color: Colors.red,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                );
+                                              },
                                             ),
                                             Checkbox(
                                               value: todo.isCompleted,

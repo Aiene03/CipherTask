@@ -11,6 +11,7 @@ import 'views/login_view.dart';
 import 'views/todo_list_view.dart';
 import 'views/splash_view.dart';
 import 'utils/constants.dart';
+import 'utils/transitions.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -65,10 +66,17 @@ class MyApp extends StatelessWidget {
             ),
             debugShowCheckedModeBanner: false,
             home: const SplashView(),
-            routes: {
-              '/splash': (context) => const SplashView(),
-              '/login': (context) => LoginView(),
-              '/todos': (context) => const TodoListView(),
+            onGenerateRoute: (settings) {
+              switch (settings.name) {
+                case '/splash':
+                  return FadePageTransition(child: const SplashView());
+                case '/login':
+                  return FadePageTransition(child: const LoginView());
+                case '/todos':
+                  return FadePageTransition(child: const TodoListView());
+                default:
+                  return FadePageTransition(child: const SplashView());
+              }
             },
           ),
         );

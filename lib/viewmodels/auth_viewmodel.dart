@@ -100,6 +100,12 @@ class AuthViewModel extends ChangeNotifier {
         localizedReason: 'Authenticate to access CipherTask',
       );
       if (authenticated) {
+        // Get the last logged in user email for biometric login
+        final lastEmail = await _keyStorage.readValue('last_logged_in_user');
+        if (lastEmail != null) {
+          // Ensure the last logged in user is still set
+          await _keyStorage.saveValue('last_logged_in_user', lastEmail);
+        }
         _isLoggedIn = true;
         _sessionService.startTimer();
         notifyListeners();
@@ -108,6 +114,22 @@ class AuthViewModel extends ChangeNotifier {
     } catch (e) {
       return false;
     }
+  }
+
+  Future<String?> getLoggedInUserEmail() async {
+    // Try to get the last logged in email first
+    final lastEmail = await _keyStorage.readValue('last_logged_in_user');
+    if (lastEmail != null && lastEmail.isNotEmpty) {
+      return lastEmail;
+    }
+
+    // Fallback to registered email if last login email not found
+    final registeredEmail = await _keyStorage.readValue('user_email');
+    if (registeredEmail != null && registeredEmail.isNotEmpty) {
+      return registeredEmail;
+    }
+
+    return null;
   }
 
   void logout() {

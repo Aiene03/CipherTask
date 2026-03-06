@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../viewmodels/auth_viewmodel.dart';
+import '../utils/transitions.dart';
 import 'register_view.dart';
 import 'todo_list_view.dart';
 
@@ -21,7 +22,6 @@ class _LoginViewState extends State<LoginView> with TickerProviderStateMixin {
 
   bool _obscurePassword = true;
   bool _isLoading = false;
-  bool _rememberMe = false;
 
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
@@ -39,7 +39,7 @@ class _LoginViewState extends State<LoginView> with TickerProviderStateMixin {
     _animationController.forward();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadSavedEmail();
+      // Load saved email functionality removed
     });
   }
 
@@ -67,18 +67,10 @@ class _LoginViewState extends State<LoginView> with TickerProviderStateMixin {
         _passwordController.text,
       );
 
-      if (success) {
-        if (_rememberMe) {
-          await authViewModel.setRememberedEmail(_emailController.text.trim());
-        } else {
-          await authViewModel.clearRememberedEmail();
-        }
-      }
-
       if (success && mounted) {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => const TodoListView()),
+          FadePageTransition(child: const TodoListView()),
         );
       } else if (mounted) {
         scaffoldMessenger.showSnackBar(
@@ -116,7 +108,7 @@ class _LoginViewState extends State<LoginView> with TickerProviderStateMixin {
       if (success && mounted) {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => const TodoListView()),
+          FadePageTransition(child: const TodoListView()),
         );
       } else if (mounted) {
         scaffoldMessenger.showSnackBar(
@@ -140,69 +132,6 @@ class _LoginViewState extends State<LoginView> with TickerProviderStateMixin {
         setState(() => _isLoading = false);
       }
     }
-  }
-
-  Future<void> _loadSavedEmail() async {
-    final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
-    final saved = await authViewModel.getRememberedEmail();
-    if (saved != null && saved.isNotEmpty) {
-      setState(() {
-        _emailController.text = saved;
-        _rememberMe = true;
-      });
-    }
-  }
-
-  Future<void> _showForgotPasswordDialog() async {
-    final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
-    final emailController = TextEditingController(text: _emailController.text);
-    final formKey = GlobalKey<FormState>();
-    await showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Reset Password'),
-        content: Form(
-          key: formKey,
-          child: TextFormField(
-            controller: emailController,
-            keyboardType: TextInputType.emailAddress,
-            decoration: const InputDecoration(labelText: 'Email'),
-            validator: (v) {
-              if (v == null || v.isEmpty) return 'Please provide an email';
-              if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(v)) {
-                return 'Invalid email';
-              }
-              return null;
-            },
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('CANCEL'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              if (!formKey.currentState!.validate()) return;
-              Navigator.of(ctx).pop();
-              final success = await authViewModel.sendOtp(
-                emailController.text.trim(),
-              );
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    success
-                        ? 'OTP sent to your email'
-                        : 'Failed to send OTP. Check email',
-                  ),
-                ),
-              );
-            },
-            child: const Text('SEND'),
-          ),
-        ],
-      ),
-    );
   }
 
   @override
@@ -419,47 +348,6 @@ class _LoginViewState extends State<LoginView> with TickerProviderStateMixin {
                                 return null;
                               },
                             ),
-                            const SizedBox(height: 8),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                TextButton(
-                                  onPressed: _isLoading
-                                      ? null
-                                      : _showForgotPasswordDialog,
-                                  child: Text(
-                                    'Forgot password?',
-                                    style: TextStyle(
-                                      color: Colors.white.withValues(
-                                        alpha: 0.6,
-                                      ),
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ),
-                                Row(
-                                  children: [
-                                    Checkbox(
-                                      value: _rememberMe,
-                                      activeColor: Colors.white,
-                                      checkColor: const Color(0xFF1A1A2E),
-                                      onChanged: (v) {
-                                        setState(() {
-                                          _rememberMe = v ?? false;
-                                        });
-                                      },
-                                    ),
-                                    const Text(
-                                      'Remember me',
-                                      style: TextStyle(
-                                        color: Colors.white70,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
                             const SizedBox(height: 16),
                             SizedBox(
                               width: double.infinity,
@@ -582,9 +470,7 @@ class _LoginViewState extends State<LoginView> with TickerProviderStateMixin {
                         TextButton(
                           onPressed: () {
                             Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => const RegisterView(),
-                              ),
+                              FadePageTransition(child: const RegisterView()),
                             );
                           },
                           child: const Text(
