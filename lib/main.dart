@@ -9,22 +9,25 @@ import 'viewmodels/auth_viewmodel.dart';
 import 'viewmodels/todo_viewmodel.dart';
 import 'views/login_view.dart';
 import 'views/todo_list_view.dart';
+import 'views/splash_view.dart';
 import 'utils/constants.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
-  // Security Feature: Prevent screenshots and obfuscate in "Recent Apps" (Android)
+
   try {
-    await FlutterWindowManagerPlus.addFlags(FlutterWindowManagerPlus.FLAG_SECURE);
+    await FlutterWindowManagerPlus.addFlags(
+      FlutterWindowManagerPlus.FLAG_SECURE,
+    );
   } catch (e) {
     debugPrint('WindowManager not supported on this platform');
   }
 
   final keyStorage = KeyStorageService();
-  final dbKey = await keyStorage.getOrCreateDatabaseKey(AppConstants.dbKeyStorageKey);
-  
-  // Initialize services
+  final dbKey = await keyStorage.getOrCreateDatabaseKey(
+    AppConstants.dbKeyStorageKey,
+  );
+
   final encryptionService = EncryptionService(dbKey);
   final databaseService = DatabaseService(dbKey);
   final sessionService = SessionService(AppConstants.sessionTimeoutMinutes);
@@ -32,9 +35,12 @@ void main() async {
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => AuthViewModel(keyStorage, sessionService)),
-        // TodoViewModel depends on the services initialized above
-        ChangeNotifierProvider(create: (_) => TodoViewModel(databaseService, encryptionService)),
+        ChangeNotifierProvider(
+          create: (_) => AuthViewModel(keyStorage, sessionService),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => TodoViewModel(databaseService, encryptionService),
+        ),
       ],
       child: const MyApp(),
     ),
@@ -54,14 +60,14 @@ class MyApp extends StatelessWidget {
           child: MaterialApp(
             title: 'CipherTask',
             theme: ThemeData(
-              colorScheme: ColorScheme.fromSeed(seedColor: Colors.blueGrey),
+              colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
               useMaterial3: true,
             ),
             debugShowCheckedModeBanner: false,
-            // Logic for auto-lock: If logged out (manually or by timeout), show Login
-            home: authViewModel.isLoggedIn ? const TodoListView() : const LoginView(),
+            home: const SplashView(),
             routes: {
-              '/login': (context) => const LoginView(),
+              '/splash': (context) => const SplashView(),
+              '/login': (context) => LoginView(),
               '/todos': (context) => const TodoListView(),
             },
           ),

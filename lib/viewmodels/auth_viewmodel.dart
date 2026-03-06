@@ -34,6 +34,23 @@ class AuthViewModel extends ChangeNotifier {
     return true;
   }
 
+  /// Persist or clear the remembered email. Passing `null` clears it.
+  Future<void> setRememberedEmail(String? email) async {
+    if (email == null || email.isEmpty) {
+      await _keyStorage.deleteValue('remembered_email');
+    } else {
+      await _keyStorage.saveValue('remembered_email', email);
+    }
+  }
+
+  Future<String?> getRememberedEmail() async {
+    return await _keyStorage.readValue('remembered_email');
+  }
+
+  Future<void> clearRememberedEmail() async {
+    await _keyStorage.deleteValue('remembered_email');
+  }
+
   Future<bool> register(String email, String password) async {
     // Mocking successful registration
     await _keyStorage.saveValue('user_email', email);
@@ -46,7 +63,7 @@ class AuthViewModel extends ChangeNotifier {
 
     bool canCheckBiometrics = await _localAuth.canCheckBiometrics;
     bool isDeviceSupported = await _localAuth.isDeviceSupported();
-    
+
     if (!canCheckBiometrics || !isDeviceSupported) return false;
 
     try {
