@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:email_otp/email_otp.dart';
+import 'dart:convert';
 import '../services/key_storage_service.dart';
 import '../services/session_service.dart';
 
@@ -12,26 +13,36 @@ class AuthViewModel extends ChangeNotifier {
   bool _isLoggedIn = false;
   bool get isLoggedIn => _isLoggedIn;
 
+  String? _simulatedOtp; // For simulation purposes
+  String? get simulatedOtp => _simulatedOtp;
+
   AuthViewModel(this._keyStorage, this._sessionService) {
     _sessionService.onTimeout = logout;
   }
 
   Future<bool> sendOtp(String email) async {
-    return await EmailOTP.sendOTP(email: email);
+    // For simulation: generate a random 6-digit OTP
+    _simulatedOtp = (100000 + (DateTime.now().millisecondsSinceEpoch % 900000)).toString();
+    notifyListeners();
+    return true;
   }
 
   bool verifyOtp(String otp) {
-    return EmailOTP.verifyOTP(otp: otp);
+    return _simulatedOtp == otp;
   }
 
   Future<bool> login(String email, String password) async {
-    // Mocking successful login
-    await _keyStorage.saveValue('last_logged_in_user', email);
-    await _keyStorage.saveValue('has_logged_in_once', 'true');
-    _isLoggedIn = true;
-    _sessionService.startTimer();
-    notifyListeners();
-    return true;
+    // Check if user is registered
+    Map<String, String> registeredUsers = await _getRegisteredUsers();
+    if (registeredUsers.containsKey(email) && registeredUsers[email] == password) {
+      await _keyStorage.saveValue('last_logged_in_user', email);
+      await _keyStorage.saveValue('has_logged_in_once', 'true');
+      _isLoggedIn = true;
+      _sessionService.startTimer();
+      notifyListeners();
+      return true;
+    }
+    return false; // User not registered or wrong password
   }
 
   /// Persist or clear the remembered email. Passing `null` clears it.
@@ -52,9 +63,27 @@ class AuthViewModel extends ChangeNotifier {
   }
 
   Future<bool> register(String email, String password) async {
-    // Mocking successful registration
-    await _keyStorage.saveValue('user_email', email);
+    // Store user credentials
+    Map<String, String> registeredUsers = await _getRegisteredUsers();
+    registeredUsers[email] = password;
+    await _saveRegisteredUsers(registeredUsers);
     return true;
+  }
+
+  Future<Map<String, String>> _getRegisteredUsers() async {
+    String? usersJson = await _keyStorage.readValue('registered_users');
+    if (usersJson == null) return {};
+    try {
+      Map<String, dynamic> usersMap = jsonDecode(usersJson);
+      return usersMap.map((key, value) => MapEntry(key, value.toString()));
+    } catch (e) {
+      return {};
+    }
+  }
+
+  Future<void> _saveRegisteredUsers(Map<String, String> users) async {
+    String usersJson = jsonEncode(users);
+    await _keyStorage.saveValue('registered_users', usersJson);
   }
 
   Future<bool> authenticateWithBiometrics() async {
