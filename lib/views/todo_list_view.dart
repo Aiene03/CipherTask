@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 import '../viewmodels/todo_viewmodel.dart';
 import '../viewmodels/auth_viewmodel.dart';
 import '../models/todo_model.dart';
@@ -14,7 +15,6 @@ class TodoListView extends StatefulWidget {
 
 class _TodoListViewState extends State<TodoListView>
     with TickerProviderStateMixin {
-  final GlobalKey<AnimatedListState> _listKey = GlobalKey();
   final TextEditingController _searchController = TextEditingController();
 
   late AnimationController _animationController;
@@ -520,23 +520,15 @@ class _TodoListViewState extends State<TodoListView>
                               ],
                             ),
                           )
-                        : AnimatedList(
-                            key: _listKey,
-                            initialItemCount: filteredTodos.length,
+                        : ListView.builder(
+                            itemCount: filteredTodos.length,
                             padding: const EdgeInsets.symmetric(
                               vertical: 8,
                               horizontal: 16,
                             ),
-                            itemBuilder: (context, index, animation) {
+                            itemBuilder: (context, index) {
                               final todo = filteredTodos[index];
-                              return FadeTransition(
-                                opacity: animation,
-                                child: SlideTransition(
-                                  position: Tween<Offset>(
-                                    begin: const Offset(0, 0.1),
-                                    end: Offset.zero,
-                                  ).animate(animation),
-                                  child: Dismissible(
+                              return Dismissible(
                                     key: Key(todo.id.toString()),
                                     direction: DismissDirection.horizontal,
                                     background: Container(
@@ -683,14 +675,33 @@ class _TodoListViewState extends State<TodoListView>
                                                 : null,
                                           ),
                                         ),
-                                        subtitle: Text(
-                                          'Tap to view secret note • Use buttons to edit/delete',
-                                          style: TextStyle(
-                                            color: Colors.white.withValues(
-                                              alpha: 0.5,
+                                        subtitle: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              DateFormat(
+                                                'MMM d, yyyy • HH:mm',
+                                              ).format(todo.createdAt),
+                                              style: TextStyle(
+                                                color: Colors.cyan.withValues(
+                                                  alpha: 0.6,
+                                                ),
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.bold,
+                                              ),
                                             ),
-                                            fontSize: 12,
-                                          ),
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              'Tap to view secret note • Use buttons to edit/delete',
+                                              style: TextStyle(
+                                                color: Colors.white.withValues(
+                                                  alpha: 0.5,
+                                                ),
+                                                fontSize: 11,
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                         trailing: Row(
                                           mainAxisSize: MainAxisSize.min,
@@ -834,9 +845,7 @@ class _TodoListViewState extends State<TodoListView>
                                         },
                                       ),
                                     ),
-                                  ),
-                                ),
-                              );
+                                  );
                             },
                           ),
                   ),
@@ -1053,10 +1062,6 @@ class _TodoListViewState extends State<TodoListView>
                             vm.addTodo(
                               titleController.text,
                               noteController.text,
-                            );
-                            // insert animation
-                            _listKey.currentState?.insertItem(
-                              vm.todos.length - 1,
                             );
                           } else {
                             vm.updateTodo(

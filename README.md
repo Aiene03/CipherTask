@@ -22,6 +22,13 @@ A secure task management application built with Flutter following the **Strict M
 - **Privacy Shield:** Prevents screenshots and obfuscates content in the "Recent Apps" switcher.
 - **Real MFA:** Registration requires verification via a 6-digit OTP sent to a real email address.
 
+## 🆕 What's New in v1.1.0
+
+- **Fixed List Crash:** Resolved a `RangeError` that occurred when deleting tasks or clearing completed items.
+- **Universal Email Support:** Improved email validation to accept more providers including Outlook, Yahoo, and custom domains.
+- **Task Timestamps:** Added creation date and time to all tasks for better tracking.
+- **Stability Improvements:** Switched to a more robust list management system for a smoother user experience.
+
 ## 🚀 Getting Started
 
 1.  **Clone the repository:**

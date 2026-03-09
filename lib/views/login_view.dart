@@ -74,8 +74,8 @@ class _LoginViewState extends State<LoginView> with TickerProviderStateMixin {
         );
       } else if (mounted) {
         scaffoldMessenger.showSnackBar(
-          const SnackBar(
-            content: Text('Login failed. Please check your credentials.'),
+          SnackBar(
+            content: Text(authViewModel.authError ?? 'Login failed. Please check your credentials.'),
             backgroundColor: Colors.red,
           ),
         );

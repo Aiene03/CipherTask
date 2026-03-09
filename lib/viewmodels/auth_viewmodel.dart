@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:local_auth/local_auth.dart';
-import 'package:email_otp/email_otp.dart';
-import 'dart:convert';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/key_storage_service.dart';
 import '../services/session_service.dart';
 
@@ -9,87 +8,175 @@ class AuthViewModel extends ChangeNotifier {
   final KeyStorageService _keyStorage;
   final SessionService _sessionService;
   final LocalAuthentication _localAuth = LocalAuthentication();
+  final _supabase = Supabase.instance.client;
 
   bool _isLoggedIn = false;
   bool get isLoggedIn => _isLoggedIn;
-
-  String? _simulatedOtp; // For simulation purposes
-  String? get simulatedOtp => _simulatedOtp;
+  
+  String? _authError;
+  String? get authError => _authError;
 
   AuthViewModel(this._keyStorage, this._sessionService) {
     _sessionService.onTimeout = logout;
+    _checkInitialSession();
   }
 
-  Future<bool> sendOtp(String email) async {
-    // For simulation: generate a random 6-digit OTP
-    _simulatedOtp = (100000 + (DateTime.now().millisecondsSinceEpoch % 900000)).toString();
-    notifyListeners();
-    return true;
-  }
-
-  bool verifyOtp(String otp) {
-    return _simulatedOtp == otp;
-  }
-
-  Future<bool> login(String email, String password) async {
-    // Check if user is registered
-    Map<String, String> registeredUsers = await _getRegisteredUsers();
-    if (registeredUsers.containsKey(email) && registeredUsers[email] == password) {
-      await _keyStorage.saveValue('last_logged_in_user', email);
-      await _keyStorage.saveValue('has_logged_in_once', 'true');
+  /// Automatically check if there is a valid Supabase session on startup
+  Future<void> _checkInitialSession() async {
+    final session = _supabase.auth.currentSession;
+    if (session != null) {
       _isLoggedIn = true;
       _sessionService.startTimer();
       notifyListeners();
-      return true;
-    }
-    return false; // User not registered or wrong password
-  }
-
-  /// Persist or clear the remembered email. Passing `null` clears it.
-  Future<void> setRememberedEmail(String? email) async {
-    if (email == null || email.isEmpty) {
-      await _keyStorage.deleteValue('remembered_email');
-    } else {
-      await _keyStorage.saveValue('remembered_email', email);
     }
   }
 
-  Future<String?> getRememberedEmail() async {
-    return await _keyStorage.readValue('remembered_email');
-  }
-
-  Future<void> clearRememberedEmail() async {
-    await _keyStorage.deleteValue('remembered_email');
-  }
-
-  Future<bool> register(String email, String password) async {
-    // Store user credentials
-    Map<String, String> registeredUsers = await _getRegisteredUsers();
-    registeredUsers[email] = password;
-    await _saveRegisteredUsers(registeredUsers);
-    return true;
-  }
-
-  Future<Map<String, String>> _getRegisteredUsers() async {
-    String? usersJson = await _keyStorage.readValue('registered_users');
-    if (usersJson == null) return {};
+  /// Sends a real OTP via Supabase SignUp
+  Future<Map<String, dynamic>> sendOtp(String email, String password) async {
     try {
-      Map<String, dynamic> usersMap = jsonDecode(usersJson);
-      return usersMap.map((key, value) => MapEntry(key, value.toString()));
+      _authError = null;
+      final lowercaseEmail = email.toLowerCase();
+      debugPrint('DEBUG: Attempting signUp for: $lowercaseEmail');
+      
+      final response = await _supabase.auth.signUp(
+        email: lowercaseEmail,
+        password: password,
+      );
+      
+      debugPrint('DEBUG: signUp response user: ${response.user?.id}');
+      debugPrint('DEBUG: signUp response session: ${response.session != null}');
+      
+      if (response.session != null) {
+        // Confirmation is OFF, user is already logged in
+        _isLoggedIn = true;
+        _sessionService.startTimer();
+        await _keyStorage.saveValue('last_logged_in_user', lowercaseEmail);
+        await _keyStorage.saveValue('has_logged_in_once', 'true');
+        notifyListeners();
+        return {'status': 'logged_in'};
+      }
+
+      if (response.user != null) {
+        // Confirmation is ON, OTP sent
+        return {'status': 'otp_sent'};
+      }
+
+      _authError = 'Registration failed. Please try again.';
+      notifyListeners();
+      return {'status': 'error'};
     } catch (e) {
-      return {};
+      debugPrint('DEBUG: Auth error in sendOtp: $e');
+      final errorStr = e.toString().toLowerCase();
+      
+      if (errorStr.contains('already registered') || errorStr.contains('already exists')) {
+        try {
+          debugPrint('DEBUG: User exists, attempting resend fallback...');
+          await _supabase.auth.resend(
+            type: OtpType.signup,
+            email: email.toLowerCase(),
+          );
+          return {'status': 'otp_sent'};
+        } catch (resendError) {
+          debugPrint('DEBUG: Resend fallback failed: $resendError');
+          // If resend fails, they might be already confirmed
+          _authError = 'User already exists. Please login instead.';
+          notifyListeners();
+          return {'status': 'error'};
+        }
+      } else {
+        _authError = e.toString().replaceFirst('AuthException: ', '');
+        notifyListeners();
+        return {'status': 'error'};
+      }
     }
   }
 
-  Future<void> _saveRegisteredUsers(Map<String, String> users) async {
-    String usersJson = jsonEncode(users);
-    await _keyStorage.saveValue('registered_users', usersJson);
+  /// Resends the signup OTP
+  Future<bool> resendOtp(String email) async {
+    try {
+      _authError = null;
+      await _supabase.auth.resend(
+        type: OtpType.signup,
+        email: email.toLowerCase(),
+      );
+      return true;
+    } catch (e) {
+      debugPrint('Resend error: $e');
+      _authError = e.toString().replaceFirst('AuthException: ', '');
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// Verifies the 6-8 digit code sent to Gmail/Outlook
+  Future<bool> verifyRegistrationOtp(String email, String token) async {
+    try {
+      _authError = null;
+      final lowercaseEmail = email.toLowerCase();
+      debugPrint('Verifying OTP for: $lowercaseEmail with token: $token');
+      final response = await _supabase.auth.verifyOTP(
+        type: OtpType.signup,
+        token: token,
+        email: lowercaseEmail,
+      );
+      
+      debugPrint('OTP verification response session: ${response.session != null}');
+      if (response.session != null) {
+        _isLoggedIn = true;
+        _sessionService.startTimer();
+        await _keyStorage.saveValue('last_logged_in_user', lowercaseEmail);
+        await _keyStorage.saveValue('has_logged_in_once', 'true');
+        notifyListeners();
+        return true;
+      }
+      _authError = 'Verification failed. Please check the code.';
+      notifyListeners();
+      return false;
+    } catch (e) {
+      debugPrint('OTP Verification error: $e');
+      _authError = e.toString().replaceFirst('AuthException: ', '');
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> login(String email, String password) async {
+    try {
+      _authError = null;
+      final lowercaseEmail = email.toLowerCase();
+      debugPrint('Attempting login for: $lowercaseEmail');
+      final response = await _supabase.auth.signInWithPassword(
+        email: lowercaseEmail,
+        password: password,
+      );
+      
+      debugPrint('Login response session: ${response.session != null}');
+      if (response.session != null) {
+        await _keyStorage.saveValue('last_logged_in_user', lowercaseEmail);
+        await _keyStorage.saveValue('has_logged_in_once', 'true');
+        _isLoggedIn = true;
+        _sessionService.startTimer();
+        notifyListeners();
+        return true;
+      }
+      _authError = 'Login failed. Please check your credentials.';
+      notifyListeners();
+      return false;
+    } catch (e) {
+      debugPrint('Login error: $e');
+      _authError = e.toString().replaceFirst('AuthException: ', '');
+      notifyListeners();
+      return false;
+    }
   }
 
   Future<bool> authenticateWithBiometrics() async {
     final hasLoggedInOnce = await _keyStorage.readValue('has_logged_in_once');
     if (hasLoggedInOnce != 'true') return false;
 
+    // Check if we still have a valid Supabase user session we can "unlock"
+    // If the session is totally gone (e.g., after manual logout), 
+    // we allow the unlock but note that Supabase features might be limited.
     bool canCheckBiometrics = await _localAuth.canCheckBiometrics;
     bool isDeviceSupported = await _localAuth.isDeviceSupported();
 
@@ -99,40 +186,33 @@ class AuthViewModel extends ChangeNotifier {
       bool authenticated = await _localAuth.authenticate(
         localizedReason: 'Authenticate to access CipherTask',
       );
+      
       if (authenticated) {
-        // Get the last logged in user email for biometric login
-        final lastEmail = await _keyStorage.readValue('last_logged_in_user');
-        if (lastEmail != null) {
-          // Ensure the last logged in user is still set
-          await _keyStorage.saveValue('last_logged_in_user', lastEmail);
-        }
         _isLoggedIn = true;
         _sessionService.startTimer();
         notifyListeners();
       }
       return authenticated;
     } catch (e) {
+      debugPrint('Biometric error: $e');
       return false;
     }
   }
 
   Future<String?> getLoggedInUserEmail() async {
-    // Try to get the last logged in email first
-    final lastEmail = await _keyStorage.readValue('last_logged_in_user');
-    if (lastEmail != null && lastEmail.isNotEmpty) {
-      return lastEmail;
+    final user = _supabase.auth.currentUser;
+    if (user != null && user.email != null) {
+      return user.email;
     }
-
-    // Fallback to registered email if last login email not found
-    final registeredEmail = await _keyStorage.readValue('user_email');
-    if (registeredEmail != null && registeredEmail.isNotEmpty) {
-      return registeredEmail;
-    }
-
-    return null;
+    return await _keyStorage.readValue('last_logged_in_user');
   }
 
-  void logout() {
+  Future<void> logout() async {
+    try {
+      await _supabase.auth.signOut();
+    } catch (e) {
+      debugPrint('Logout error: $e');
+    }
     _isLoggedIn = false;
     _sessionService.stopTimer();
     notifyListeners();
@@ -143,4 +223,15 @@ class AuthViewModel extends ChangeNotifier {
       _sessionService.resetTimer();
     }
   }
+
+  // Helper methods for email remembrance
+  Future<void> setRememberedEmail(String? email) async {
+    if (email == null || email.isEmpty) {
+      await _keyStorage.deleteValue('remembered_email');
+    } else {
+      await _keyStorage.saveValue('remembered_email', email);
+    }
+  }
+
+  Future<String?> getRememberedEmail() async => await _keyStorage.readValue('remembered_email');
 }

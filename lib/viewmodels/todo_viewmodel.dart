@@ -20,19 +20,12 @@ class TodoViewModel extends ChangeNotifier {
   }
 
   Future<void> addTodo(String title, String secretNotes) async {
-    debugPrint('--- AES-256 ENCRYPTION PROOF ---');
-    debugPrint('1. USER INPUT: $secretNotes');
-    
     final encryptedNotes = _encryptionService.encryptText(secretNotes);
-    debugPrint('2. CIPHERTEXT GENERATED: $encryptedNotes');
-    
     final todo = TodoModel(
       title: title,
       encryptedSecretNotes: encryptedNotes,
       createdAt: DateTime.now(),
     );
-    
-    debugPrint('3. SAVING TO DATABASE: ${todo.toMap()}');
     await _databaseService.insertTodo(todo);
     await _loadTodos();
   }
@@ -43,7 +36,7 @@ class TodoViewModel extends ChangeNotifier {
       id: id,
       title: title,
       encryptedSecretNotes: encryptedNotes,
-      createdAt: DateTime.now(), // Keeping original might be better but for lab this is fine
+      createdAt: DateTime.now(),
     );
     await _databaseService.updateTodo(todo);
     await _loadTodos();
@@ -58,6 +51,11 @@ class TodoViewModel extends ChangeNotifier {
   Future<void> deleteTodo(int id) async {
     await _databaseService.deleteTodo(id);
     await _loadTodos();
+  }
+
+  void clearData() {
+    _todos = [];
+    notifyListeners();
   }
 
   String decryptSecretNote(String encryptedNotes) {

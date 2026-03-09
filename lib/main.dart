@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_windowmanager_plus/flutter_windowmanager_plus.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'services/key_storage_service.dart';
 import 'services/encryption_service.dart';
 import 'services/database_service.dart';
@@ -15,6 +16,11 @@ import 'utils/transitions.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  await Supabase.initialize(
+    url: AppConstants.supabaseUrl,
+    anonKey: AppConstants.supabaseAnonKey,
+  );
 
   try {
     await FlutterWindowManagerPlus.addFlags(
