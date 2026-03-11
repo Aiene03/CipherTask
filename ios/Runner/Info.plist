@@ -47,5 +47,16 @@
 	<true/>
 	<key>NSFaceIDUsageDescription</key>
 	<string>CipherTask requires FaceID to provide secure and fast access to your encrypted notes.</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.ciphertask.cipher_task</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

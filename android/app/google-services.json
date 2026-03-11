@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "213140550276",
+    "project_id": "ciphertask-e3467",
+    "storage_bucket": "ciphertask-e3467.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:213140550276:android:57b96a1bc0ed41cf0848d1",
+        "android_client_info": {
+          "package_name": "com.ciphertask.cipher_task"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "213140550276-37tspi8ohn3cjqcfk551sli7ni618660.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.ciphertask.cipher_task",
+            "certificate_hash": "5229b1b0009a4ab51a79f81b3e3c32efda0ebd5f"
+          }
+        },
+        {
+          "client_id": "213140550276-2lrbiu463novcsbv2ki183rfne179io2.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDKGRHk5Q4PN_tkzneejFCO1IY44uwKjGY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "213140550276-2lrbiu463novcsbv2ki183rfne179io2.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
